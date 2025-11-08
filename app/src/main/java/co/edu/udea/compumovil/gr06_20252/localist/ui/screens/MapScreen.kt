@@ -4,7 +4,11 @@ import android.Manifest
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -25,6 +29,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.LatLng
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
@@ -41,6 +46,7 @@ fun MapScreen(
     viewModel: MapViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val firestore = remember { FirebaseFirestore.getInstance() }
     val locationPermission = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
 
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
@@ -49,6 +55,15 @@ fun MapScreen(
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
+    // Escucha en tiempo real los eventos
+    LaunchedEffect(Unit) {
+        firestore.collection("events").addSnapshotListener { snapshot, e ->
+            if (e != null || snapshot == null) return@addSnapshotListener
+            eventMarkers = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(EventMarker::class.java)?.apply { id = doc.id }
+            }
+        }
+    }
     LaunchedEffect(Unit) {
         if (!locationPermission.status.isGranted) {
             locationPermission.launchPermissionRequest()
@@ -89,30 +104,13 @@ fun MapScreen(
                 coroutineScope.launch {
                     bottomSheetState.show()
                 }
-//                val newMarker = EventMarker(
-//                    id = eventMarkers.size + 1,
-//                    title = "Nuevo evento #${eventMarkers.size + 1}",
-//                    position = latLng
-//                )
-//                eventMarkers = eventMarkers + newMarker
             }
         ) {
-            // Muestra ubicación del usuario
-//            userLocation?.let {
-//                Marker(
-//                    state = MarkerState(position = it),
-//                    title = "Tu ubicación",
-//                    snippet = "Aquí estás"
-//                )
-//            }
-
             // Filtra y muestra eventos válidos (no expirados)
             val now = LocalDateTime.now()
-            eventMarkers.filter { event ->
-                now.isBefore(event.createdAt.plusHours(event.durationHours.toLong()))
-            }.forEach { event ->
+            eventMarkers.filter { !it.isExpired()}.forEach { event ->
                 Marker(
-                    state = MarkerState(position = event.position),
+                    state = MarkerState(position = event.toLatLng()),
                     title = event.title,
                     snippet = event.description
                 )
@@ -126,16 +124,17 @@ fun MapScreen(
                 sheetState = bottomSheetState
             ) {
                 AddEventBottomSheet(
-                    onSave = { title, description, isPublic, duration,  ->
+                    onSave = { title, description, isPublic, duration ->
                         val newEvent = EventMarker(
-                            id = eventMarkers.size + 1,
                             title = title,
-                            position = newMarkerPosition!!,
+                            latitude = newMarkerPosition!!.latitude,
+                            longitude = newMarkerPosition!!.longitude,
                             description = description,
                             isPublic = isPublic,
                             durationHours = duration,
-                            createdAt = LocalDateTime.now()
+                            createdAt = com.google.firebase.Timestamp.now()
                         )
+                        addEventToFirestore(firestore, newEvent)
                         eventMarkers = eventMarkers + newEvent
                         newMarkerPosition = null
                         coroutineScope.launch { bottomSheetState.hide() }
@@ -144,4 +143,18 @@ fun MapScreen(
             }
         }
     }
+}
+
+private fun addEventToFirestore(
+    firestore: FirebaseFirestore,
+    newEvent: EventMarker
+) {
+    firestore.collection("events")
+        .add(newEvent)
+        .addOnSuccessListener {
+            android.util.Log.d("Firestore", "Evento agregado correctamente con ID ${it.id}")
+        }
+        .addOnFailureListener { e ->
+            android.util.Log.e("Firestore", "Error al agregar evento", e)
+        }
 }
