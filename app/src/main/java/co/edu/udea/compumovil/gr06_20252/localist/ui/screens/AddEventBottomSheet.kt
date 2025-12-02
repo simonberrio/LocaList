@@ -12,8 +12,6 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun AddEventBottomSheet(
     onSave: (String, String, Boolean, Int) -> Unit
-//    ,
-//    onDismiss: () -> Unit
 ) {
     var title by remember { mutableStateOf(TextFieldValue("")) }
     var description by remember { mutableStateOf(TextFieldValue("")) }
@@ -68,9 +66,6 @@ fun AddEventBottomSheet(
             horizontalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier.fillMaxWidth()
         ) {
-//            OutlinedButton(onClick = onDismiss) {
-//                Text("Cancelar")
-//            }
             Button(
                 onClick = {
                     onSave(

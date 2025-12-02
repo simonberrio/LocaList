@@ -2,14 +2,15 @@ package co.edu.udea.compumovil.gr06_20252.localist.ui.screens
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,7 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import co.edu.udea.compumovil.gr06_20252.localist.ui.model.EventMarker
+import co.edu.udea.compumovil.gr06_20252.localist.ui.model.EventViewModel
 import co.edu.udea.compumovil.gr06_20252.localist.ui.model.MapViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -29,6 +30,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.LatLng
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
@@ -37,7 +39,6 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @SuppressLint("MissingPermission")
@@ -50,8 +51,9 @@ fun MapScreen(
     val locationPermission = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
 
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
-    var eventMarkers by remember { mutableStateOf(listOf<EventMarker>()) }
+    var eventViewModels by remember { mutableStateOf(listOf<EventViewModel>()) }
     var newMarkerPosition by remember { mutableStateOf<LatLng?>(null) }
+    var selectedEvent by remember { mutableStateOf<EventViewModel?>(null) }
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
@@ -59,8 +61,8 @@ fun MapScreen(
     LaunchedEffect(Unit) {
         firestore.collection("events").addSnapshotListener { snapshot, e ->
             if (e != null || snapshot == null) return@addSnapshotListener
-            eventMarkers = snapshot.documents.mapNotNull { doc ->
-                doc.toObject(EventMarker::class.java)?.apply { id = doc.id }
+            eventViewModels = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(EventViewModel::class.java)?.apply { id = doc.id }
             }
         }
     }
@@ -93,53 +95,115 @@ fun MapScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        GoogleMap(
-            modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState,
-            uiSettings = MapUiSettings(zoomControlsEnabled = false),
-            properties = MapProperties(isMyLocationEnabled = locationPermission.status.isGranted),
-            onMapLongClick = { latLng ->
-                newMarkerPosition = latLng
-                coroutineScope.launch {
-                    bottomSheetState.show()
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    fun showSnackbar(message: String) {
+        scope.launch {
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            GoogleMap(
+                modifier = Modifier.fillMaxSize(),
+                cameraPositionState = cameraPositionState,
+                uiSettings = MapUiSettings(zoomControlsEnabled = false),
+                properties = MapProperties(isMyLocationEnabled = locationPermission.status.isGranted),
+                onMapLongClick = { latLng ->
+                    newMarkerPosition = latLng
+                    coroutineScope.launch {
+                        bottomSheetState.show()
+                    }
+                }
+            ) {
+                // Muestra eventos no expirados
+                eventViewModels.filter { !it.isExpired() }.forEach { event ->
+                    Marker(
+                        state = MarkerState(position = event.toLatLng()),
+                        title = event.title,
+                        snippet = event.description,
+                        onClick = {
+                            // Cuando se haga click en un marker, abrimos el detalle
+                            selectedEvent = event
+                            coroutineScope.launch { bottomSheetState.show() }
+                            // Retornar true si queremos consumir el evento (evita que InfoWindow se abra)
+                            true
+                        }
+                    )
                 }
             }
-        ) {
-            // Filtra y muestra eventos válidos (no expirados)
-            val now = LocalDateTime.now()
-            eventMarkers.filter { !it.isExpired()}.forEach { event ->
-                Marker(
-                    state = MarkerState(position = event.toLatLng()),
-                    title = event.title,
-                    snippet = event.description
-                )
-            }
-        }
 
-        // BottomSheet para crear evento
-        if (newMarkerPosition != null) {
-            ModalBottomSheet(
-                onDismissRequest = { newMarkerPosition = null },
-                sheetState = bottomSheetState
-            ) {
-                AddEventBottomSheet(
-                    onSave = { title, description, isPublic, duration ->
-                        val newEvent = EventMarker(
-                            title = title,
-                            latitude = newMarkerPosition!!.latitude,
-                            longitude = newMarkerPosition!!.longitude,
-                            description = description,
-                            isPublic = isPublic,
-                            durationHours = duration,
-                            createdAt = com.google.firebase.Timestamp.now()
-                        )
-                        addEventToFirestore(firestore, newEvent)
-                        eventMarkers = eventMarkers + newEvent
-                        newMarkerPosition = null
-                        coroutineScope.launch { bottomSheetState.hide() }
-                    }
-                )
+            // BottomSheet para crear evento
+            if (newMarkerPosition != null) {
+                ModalBottomSheet(
+                    onDismissRequest = { newMarkerPosition = null },
+                    sheetState = bottomSheetState
+                ) {
+                    SnackbarHost(hostState = snackbarHostState)
+
+                    AddEventBottomSheet(
+                        onSave = { title, description, isPublic, duration ->
+                            val newEvent = EventViewModel(
+                                title = title,
+                                latitude = newMarkerPosition!!.latitude,
+                                longitude = newMarkerPosition!!.longitude,
+                                description = description,
+                                isPublic = isPublic,
+                                durationHours = duration,
+                                createdAt = com.google.firebase.Timestamp.now()
+                            )
+
+                            val errorMessage = newEvent.validateEvent(newEvent)
+
+                            if (errorMessage != null) {
+                                showSnackbar(errorMessage)
+                            } else {
+                                addEventToFirestore(
+                                    firestore,
+                                    newEvent,
+                                    onSuccess = { showSnackbar("Evento creado exitosamente") },
+                                    onError = { showSnackbar("Error al crear el evento") }
+                                )
+                                newMarkerPosition = null
+                                coroutineScope.launch { bottomSheetState.hide() }
+                            }
+                        }
+                    )
+                }
+            }
+
+            // BottomSheet para ver detalles del evento (si hay uno seleccionado)
+            if (selectedEvent != null) {
+                ModalBottomSheet(
+                    onDismissRequest = { selectedEvent = null },
+                    sheetState = bottomSheetState
+                ) {
+                    EventDetailBottomSheet(
+                        eventId = selectedEvent!!.id,
+                        firestore,
+                        onClose = {
+                            selectedEvent = null
+                            coroutineScope.launch { bottomSheetState.hide() }
+                        },
+                        onReact = { emoji ->
+                            selectedEvent?.id?.let { eventId ->
+                                updateReaction(firestore, eventId, emoji)
+                            }
+                        },
+                        onAddComment = { comment ->
+                            selectedEvent?.id?.let { eventId ->
+                                addCommentToEvent(firestore, eventId, comment)
+                            }
+                        }
+                    )
+                }
             }
         }
     }
@@ -147,14 +211,44 @@ fun MapScreen(
 
 private fun addEventToFirestore(
     firestore: FirebaseFirestore,
-    newEvent: EventMarker
+    newEvent: EventViewModel,
+    onSuccess: () -> Unit,
+    onError: () -> Unit
 ) {
     firestore.collection("events")
         .add(newEvent)
+        .addOnSuccessListener { onSuccess() }
+        .addOnFailureListener { onError() }
+}
+
+private fun updateReaction(
+    firestore: FirebaseFirestore,
+    eventId: String,
+    emoji: String
+) {
+    firestore.collection("events")
+        .document(eventId)
+        .update("reactions.$emoji", com.google.firebase.firestore.FieldValue.increment(1))
         .addOnSuccessListener {
-            android.util.Log.d("Firestore", "Evento agregado correctamente con ID ${it.id}")
+            Log.d("Firestore", "Reacción '$emoji' agregada al evento $eventId")
         }
         .addOnFailureListener { e ->
-            android.util.Log.e("Firestore", "Error al agregar evento", e)
+            Log.e("Firestore", "Error actualizando reacción", e)
+        }
+}
+
+fun addCommentToEvent(
+    firestore: FirebaseFirestore,
+    eventId: String,
+    comment: String
+) {
+    firestore.collection("events")
+        .document(eventId)
+        .update("comments", FieldValue.arrayUnion(comment))
+        .addOnSuccessListener {
+            Log.d("Firestore", "Comentario '$comment' agregado al evento $eventId")
+        }
+        .addOnFailureListener { e ->
+            Log.e("Firestore", "Error actualizando el comentario", e)
         }
 }
