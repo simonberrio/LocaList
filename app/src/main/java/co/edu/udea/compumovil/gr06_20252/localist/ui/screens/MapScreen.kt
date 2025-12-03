@@ -22,6 +22,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import co.edu.udea.compumovil.gr06_20252.localist.ui.model.CommentViewModel
 import co.edu.udea.compumovil.gr06_20252.localist.ui.model.EventViewModel
 import co.edu.udea.compumovil.gr06_20252.localist.ui.model.MapViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -30,7 +32,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.LatLng
-import com.google.firebase.firestore.FieldValue
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
@@ -44,6 +46,7 @@ import kotlinx.coroutines.launch
 @SuppressLint("MissingPermission")
 @Composable
 fun MapScreen(
+    navController: NavController,
     viewModel: MapViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -92,6 +95,18 @@ fun MapScreen(
                 ),
                 durationMs = 1000
             )
+        }
+    }
+    val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    var userName by remember { mutableStateOf("") }
+    LaunchedEffect(uid) {
+        if (uid.isNotEmpty()) {
+            firestore.collection("users")
+                .document(uid)
+                .get()
+                .addOnSuccessListener { doc ->
+                    userName = doc.getString("name") ?: doc.getString("email") ?: "Usuario"
+                }
         }
     }
 
@@ -157,7 +172,9 @@ fun MapScreen(
                                 description = description,
                                 isPublic = isPublic,
                                 durationHours = duration,
-                                createdAt = com.google.firebase.Timestamp.now()
+                                createdAt = com.google.firebase.Timestamp.now(),
+                                userId = uid,
+                                userName = userName
                             )
 
                             val errorMessage = newEvent.validateEvent(newEvent)
@@ -199,7 +216,7 @@ fun MapScreen(
                         },
                         onAddComment = { comment ->
                             selectedEvent?.id?.let { eventId ->
-                                addCommentToEvent(firestore, eventId, comment)
+                                addCommentToEvent(firestore, eventId, comment, uid, userName)
                             }
                         }
                     )
@@ -240,11 +257,21 @@ private fun updateReaction(
 fun addCommentToEvent(
     firestore: FirebaseFirestore,
     eventId: String,
-    comment: String
+    text: String,
+    userId: String,
+    userName: String
 ) {
+    val comment = CommentViewModel(
+        eventId = eventId,
+        text = text,
+        userId = userId,
+        userName = userName
+    )
+
     firestore.collection("events")
         .document(eventId)
-        .update("comments", FieldValue.arrayUnion(comment))
+        .collection("comments")
+        .add(comment)
         .addOnSuccessListener {
             Log.d("Firestore", "Comentario '$comment' agregado al evento $eventId")
         }

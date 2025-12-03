@@ -11,9 +11,11 @@ data class EventViewModel(
     var longitude: Double = 0.0,
     var description: String = "",
     var isPublic: Boolean = true,
-    var createdAt: Timestamp = Timestamp.now(),
     var durationHours: Int = 1,
-    var comments: MutableList<String> = mutableListOf(),
+    var createdAt: Timestamp = Timestamp.now(),
+    val userId: String = "",
+    val userName: String = "",
+    var comments: List<CommentViewModel> = emptyList(),
     var reactions: MutableMap<String, Int> = mutableMapOf(
         "👍" to 0,
         "❤️" to 0,
