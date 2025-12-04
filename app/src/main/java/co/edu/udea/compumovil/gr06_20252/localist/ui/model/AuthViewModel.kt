@@ -46,16 +46,14 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    fun signIn(email: String, password: String, onSuccess: () -> Unit) {
+    fun signIn(email: String, password: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         if (email.isBlank() || password.isBlank()) {
             viewModelScope.launch { _messages.send("Correo y contraseña requeridos.") }
             return
         }
         auth.signInWithEmailAndPassword(email, password)
             .addOnSuccessListener { onSuccess() }
-            .addOnFailureListener { e ->
-                viewModelScope.launch { _messages.send("Error login: ${e.message}") }
-            }
+            .addOnFailureListener { onError(it.message ?: "Error al iniciar sesión.") }
     }
 
     fun signOut() {

@@ -43,7 +43,6 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
-@SuppressLint("MissingPermission")
 @Composable
 fun MapScreen(
     navController: NavController,
@@ -77,13 +76,19 @@ fun MapScreen(
     val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
     LaunchedEffect(locationPermission.status.isGranted) {
         if (locationPermission.status.isGranted) {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                location?.let {
-                    userLocation = LatLng(it.latitude, it.longitude)
-                }
+            try {
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location ->
+                        location?.let {
+                            userLocation = LatLng(it.latitude, it.longitude)
+                        }
+                    }
+            } catch (e: SecurityException) {
+                e.printStackTrace()
             }
         }
     }
+
     val cameraPositionState = rememberCameraPositionState()
     // Cuando obtenga la ubicación, mover la cámara automáticamente
     LaunchedEffect(userLocation) {
@@ -97,7 +102,17 @@ fun MapScreen(
             )
         }
     }
-    val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val firebaseUser = FirebaseAuth.getInstance().currentUser
+    if (firebaseUser == null) {
+        LaunchedEffect(Unit) {
+            navController.navigate("login") {
+                popUpTo("map") { inclusive = true }
+            }
+        }
+        return
+    }
+
+    val uid = firebaseUser.uid
     var userName by remember { mutableStateOf("") }
     LaunchedEffect(uid) {
         if (uid.isNotEmpty()) {
@@ -126,11 +141,13 @@ fun MapScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            val hasLocationPermission = locationPermission.status.isGranted
+
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
                 uiSettings = MapUiSettings(zoomControlsEnabled = false),
-                properties = MapProperties(isMyLocationEnabled = locationPermission.status.isGranted),
+                properties = MapProperties(isMyLocationEnabled = hasLocationPermission),
                 onMapLongClick = { latLng ->
                     newMarkerPosition = latLng
                     coroutineScope.launch {

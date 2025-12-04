@@ -15,7 +15,6 @@ data class EventViewModel(
     var createdAt: Timestamp = Timestamp.now(),
     val userId: String = "",
     val userName: String = "",
-    var comments: List<CommentViewModel> = emptyList(),
     var reactions: MutableMap<String, Int> = mutableMapOf(
         "👍" to 0,
         "❤️" to 0,

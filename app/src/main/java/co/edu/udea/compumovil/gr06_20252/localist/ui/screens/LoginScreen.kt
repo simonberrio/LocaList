@@ -15,21 +15,21 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
-    navController: NavController,
-    authViewModel: AuthViewModel = viewModel()
+    navController: NavController
 ) {
+    val authViewModel: AuthViewModel = viewModel()
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // observar mensajes
     LaunchedEffect(Unit) {
         authViewModel.messages.collectLatest { msg ->
             snackbarHostState.showSnackbar(msg)
         }
     }
 
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
         Column(
@@ -64,10 +64,23 @@ fun LoginScreen(
 
             Button(
                 onClick = {
-                    authViewModel.signIn(email.trim(), password) {
-                        scope.launch { snackbarHostState.showSnackbar("Login correcto") }
-                        navController.navigate("map")
-                    }
+                    authViewModel.signIn(
+                        email = email.trim(),
+                        password = password,
+                        onSuccess = {
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Login correcto")
+                                navController.navigate("map") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            }
+                        },
+                        onError = { error ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar(error)
+                            }
+                        }
+                    )
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
