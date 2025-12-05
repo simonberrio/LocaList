@@ -69,8 +69,8 @@ fun LoginScreen(
                         password = password,
                         onSuccess = {
                             scope.launch {
-                                snackbarHostState.showSnackbar("Login correcto")
-                                navController.navigate("map") {
+                                snackbarHostState.showSnackbar("Login correcto. Ingresando...")
+                                navController.navigate("main") {
                                     popUpTo("login") { inclusive = true }
                                 }
                             }

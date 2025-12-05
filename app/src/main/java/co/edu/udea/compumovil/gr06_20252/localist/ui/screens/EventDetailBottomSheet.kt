@@ -1,6 +1,7 @@
 package co.edu.udea.compumovil.gr06_20252.localist.ui.screens
 
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -36,7 +37,8 @@ fun EventDetailBottomSheet(
     onClose: () -> Unit,
     onReact: (String) -> Unit,
     onAddComment: (String) -> Unit,
-    onDeleteEvent: () -> Unit
+    onDeleteEvent: () -> Unit,
+    onViewProfile: (String) -> Unit
 ) {
     var selectedEvent by remember { mutableStateOf<EventViewModel?>(null) }
     var comments by remember { mutableStateOf<List<CommentViewModel>>(emptyList()) }
@@ -67,7 +69,6 @@ fun EventDetailBottomSheet(
             }
     }
 
-    // Mientras carga
     if (selectedEvent == null) {
         Column(
             modifier = Modifier
@@ -83,10 +84,6 @@ fun EventDetailBottomSheet(
     val event = selectedEvent!!
     val duration = event.durationHours ?: 0
     val reactions = event.reactions ?: emptyMap()
-    val createdAtSafe = event.createdAt ?: return
-    val createdInstant = createdAtSafe.toDate().toInstant()
-    val localDateTime = createdInstant.atZone(ZoneId.systemDefault()).toLocalDateTime()
-    val formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm")
 
     val expirationMillis =
         event.createdAt.toDate().time + TimeUnit.HOURS.toMillis(duration.toLong())
@@ -100,7 +97,6 @@ fun EventDetailBottomSheet(
     val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
 
     var showDeleteDialog by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -147,7 +143,10 @@ fun EventDetailBottomSheet(
 
             Text(
                 text = "Creado por: ${event.userName}",
-                style = MaterialTheme.typography.labelSmall
+                modifier = Modifier.clickable {
+                    onViewProfile(event.userId)
+                },
+                color = MaterialTheme.colorScheme.primary
             )
 
             Spacer(Modifier.height(12.dp))
@@ -212,7 +211,11 @@ fun EventDetailBottomSheet(
                             ) {
                                 Text(
                                     text = comment.userName,
-                                    style = MaterialTheme.typography.labelMedium
+                                    style = MaterialTheme.typography.labelMedium,
+                                    modifier = Modifier.clickable {
+                                        onViewProfile(comment.userId)
+                                    },
+                                    color = MaterialTheme.colorScheme.primary,
                                 )
 
                                 Text(

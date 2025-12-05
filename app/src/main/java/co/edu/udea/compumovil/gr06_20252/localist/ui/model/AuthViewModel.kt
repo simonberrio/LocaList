@@ -7,6 +7,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
@@ -21,7 +22,7 @@ class AuthViewModel : ViewModel() {
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages = _messages.receiveAsFlow()
 
-    fun signUp(email: String, password: String, name: String) {
+    fun signUp(email: String, password: String, name: String, onSuccess: () -> Unit) {
         if (email.isBlank() || password.length < 6 || name.isBlank()) {
             viewModelScope.launch { _messages.send("Completa todos los campos (contraseña ≥ 6).") }
             return
@@ -31,10 +32,14 @@ class AuthViewModel : ViewModel() {
                 .addOnSuccessListener { result ->
                     val uid = result.user?.uid ?: return@addOnSuccessListener
                     // Guardar perfil en Firestore
-                    val profile = UserProfile(uid = uid, name = name, email = email)
+                    val profile = UserViewModel(uid = uid, name = name, email = email)
                     firestore.collection("users").document(uid).set(profile)
                         .addOnSuccessListener {
-                            viewModelScope.launch { _messages.send("Registro exitoso") }
+                            viewModelScope.launch {
+                                _messages.send("Registro exitoso")
+                                delay(1500)
+                                onSuccess()
+                            }
                         }
                         .addOnFailureListener { e ->
                             viewModelScope.launch { _messages.send("Error guardando perfil: ${e.message}") }

@@ -1,7 +1,6 @@
 package co.edu.udea.compumovil.gr06_20252.localist.ui.screens
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,7 +31,6 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.LatLng
-import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.maps.android.compose.GoogleMap
@@ -57,7 +55,9 @@ fun MapScreen(
     var eventViewModels by remember { mutableStateOf(listOf<EventViewModel>()) }
     var newMarkerPosition by remember { mutableStateOf<LatLng?>(null) }
     var selectedEvent by remember { mutableStateOf<EventViewModel?>(null) }
-    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val createEventSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val eventDetailSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     val coroutineScope = rememberCoroutineScope()
 
     // Escucha en tiempo real los eventos
@@ -126,15 +126,6 @@ fun MapScreen(
         }
     }
 
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true
-    )
-    LaunchedEffect(selectedEvent) {
-        if (selectedEvent != null) {
-            sheetState.show()
-        }
-    }
-
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     fun showSnackbar(message: String) {
@@ -159,9 +150,10 @@ fun MapScreen(
                 uiSettings = MapUiSettings(zoomControlsEnabled = false),
                 properties = MapProperties(isMyLocationEnabled = hasLocationPermission),
                 onMapLongClick = { latLng ->
-                    newMarkerPosition = latLng
                     coroutineScope.launch {
-                        bottomSheetState.show()
+                        newMarkerPosition = latLng
+                        kotlinx.coroutines.delay(250)
+                        createEventSheetState.show()
                     }
                 }
             ) {
@@ -172,9 +164,11 @@ fun MapScreen(
                         title = event.title,
                         snippet = event.description,
                         onClick = {
-                            // Cuando se haga click en un marker, abrimos el detalle
-                            selectedEvent = event
-                            coroutineScope.launch { bottomSheetState.show() }
+                            coroutineScope.launch {
+                                selectedEvent = event
+                                kotlinx.coroutines.delay(250)
+                                eventDetailSheetState.show()
+                            }
                             // Retornar true si queremos consumir el evento (evita que InfoWindow se abra)
                             true
                         }
@@ -186,7 +180,7 @@ fun MapScreen(
             if (newMarkerPosition != null) {
                 ModalBottomSheet(
                     onDismissRequest = { newMarkerPosition = null },
-                    sheetState = bottomSheetState
+                    sheetState = createEventSheetState
                 ) {
                     SnackbarHost(hostState = snackbarHostState)
 
@@ -215,8 +209,12 @@ fun MapScreen(
                                     onSuccess = { showSnackbar("Evento creado exitosamente") },
                                     onError = { showSnackbar("Error al crear el evento") }
                                 )
-                                newMarkerPosition = null
-                                coroutineScope.launch { bottomSheetState.hide() }
+
+                                coroutineScope.launch {
+                                    createEventSheetState.hide()
+                                    kotlinx.coroutines.delay(250)
+                                    newMarkerPosition = null
+                                }
                             }
                         }
                     )
@@ -224,17 +222,21 @@ fun MapScreen(
             }
 
             // BottomSheet para ver detalles del evento (si hay uno seleccionado)
-            if (selectedEvent != null) {
+//            if (selectedEvent != null) {
+            selectedEvent?.let { event ->
                 ModalBottomSheet(
                     onDismissRequest = { selectedEvent = null },
-                    sheetState = bottomSheetState
+                    sheetState = eventDetailSheetState
                 ) {
                     EventDetailBottomSheet(
-                        eventId = selectedEvent!!.id,
+                        eventId = event.id,
                         firestore,
                         onClose = {
-                            selectedEvent = null
-                            coroutineScope.launch { bottomSheetState.hide() }
+                            coroutineScope.launch {
+                                eventDetailSheetState.hide()
+                                kotlinx.coroutines.delay(250)
+                                selectedEvent = null
+                            }
                         },
                         onReact = { emoji ->
                             selectedEvent?.id?.let { eventId ->
@@ -251,11 +253,25 @@ fun MapScreen(
                                 deleteEventToFirestore(
                                     firestore,
                                     eventId = eventId,
-                                    onSuccess = { showSnackbar("Evento eliminado exitosamente") },
+                                    onSuccess = {
+                                        showSnackbar("Evento eliminado exitosamente")
+                                        coroutineScope.launch {
+                                            eventDetailSheetState.hide()
+                                            kotlinx.coroutines.delay(250)
+                                            selectedEvent = null
+                                        }
+                                    },
                                     onError = { showSnackbar("Error al eliminar el evento") }
                                 )
                             }
-
+                        },
+                        onViewProfile = { userId ->
+                            coroutineScope.launch {
+                                eventDetailSheetState.hide()
+                                kotlinx.coroutines.delay(250)
+                                selectedEvent = null
+                            }
+                            navController.navigate("profile/$userId")
                         }
                     )
                 }

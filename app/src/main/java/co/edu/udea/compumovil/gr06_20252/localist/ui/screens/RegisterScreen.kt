@@ -51,7 +51,8 @@ fun RegisterScreen(
             Spacer(Modifier.height(16.dp))
 
             Button(onClick = {
-                authViewModel.signUp(email.trim(), password, name.trim())
+                authViewModel.signUp(email.trim(), password, name.trim(),
+                    onSuccess = { navController.navigate("login") })
             }, modifier = Modifier.fillMaxWidth()) {
                 Text("Registrar")
             }

@@ -44,6 +44,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.4.0"))
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
+    implementation("io.coil-kt:coil-compose:2.5.0")
     implementation(libs.google.maps.compose)
     implementation(libs.google.play.maps)
     implementation(libs.google.play.location)
