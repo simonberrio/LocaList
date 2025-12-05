@@ -32,6 +32,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.LatLng
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.maps.android.compose.GoogleMap
@@ -122,6 +123,15 @@ fun MapScreen(
                 .addOnSuccessListener { doc ->
                     userName = doc.getString("name") ?: doc.getString("email") ?: "Usuario"
                 }
+        }
+    }
+
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+    LaunchedEffect(selectedEvent) {
+        if (selectedEvent != null) {
+            sheetState.show()
         }
     }
 
@@ -235,6 +245,17 @@ fun MapScreen(
                             selectedEvent?.id?.let { eventId ->
                                 addCommentToEvent(firestore, eventId, comment, uid, userName)
                             }
+                        },
+                        onDeleteEvent = {
+                            selectedEvent?.id?.let { eventId ->
+                                deleteEventToFirestore(
+                                    firestore,
+                                    eventId = eventId,
+                                    onSuccess = { showSnackbar("Evento eliminado exitosamente") },
+                                    onError = { showSnackbar("Error al eliminar el evento") }
+                                )
+                            }
+
                         }
                     )
                 }
@@ -251,6 +272,19 @@ private fun addEventToFirestore(
 ) {
     firestore.collection("events")
         .add(newEvent)
+        .addOnSuccessListener { onSuccess() }
+        .addOnFailureListener { onError() }
+}
+
+private fun deleteEventToFirestore(
+    firestore: FirebaseFirestore,
+    eventId: String,
+    onSuccess: () -> Unit,
+    onError: () -> Unit
+) {
+    firestore.collection("events")
+        .document(eventId)
+        .delete()
         .addOnSuccessListener { onSuccess() }
         .addOnFailureListener { onError() }
 }
@@ -281,6 +315,7 @@ fun addCommentToEvent(
     val comment = CommentViewModel(
         eventId = eventId,
         text = text,
+        createdAt = com.google.firebase.Timestamp.now(),
         userId = userId,
         userName = userName
     )
