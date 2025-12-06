@@ -27,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import co.edu.udea.compumovil.gr06_20252.localist.ui.model.UserViewModel
 import co.edu.udea.compumovil.gr06_20252.localist.ui.navigation.TopBar
-import coil.compose.AsyncImage
+//import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -90,15 +90,15 @@ fun ProfileScreen(
                 .padding(padding)
                 .padding(20.dp)
         ) {
-            AsyncImage(
-                model = user!!.photoUrl.ifBlank {
-                    "https://ui-avatars.com/api/?name=${user!!.name}"
-                },
-                contentDescription = null,
-                modifier = Modifier
-                    .size(110.dp)
-                    .align(Alignment.CenterHorizontally)
-            )
+//            AsyncImage(
+//                model = user!!.photoUrl.ifBlank {
+//                    "https://ui-avatars.com/api/?name=${user!!.name}"
+//                },
+//                contentDescription = null,
+//                modifier = Modifier
+//                    .size(110.dp)
+//                    .align(Alignment.CenterHorizontally)
+//            )
 
             Spacer(Modifier.height(16.dp))
 

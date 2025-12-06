@@ -2,32 +2,25 @@ package co.edu.udea.compumovil.gr06_20252.localist.ui.screens
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
-import co.edu.udea.compumovil.gr06_20252.localist.ui.model.CommentViewModel
+import co.edu.udea.compumovil.gr06_20252.localist.ui.model.EventSerializable
 import co.edu.udea.compumovil.gr06_20252.localist.ui.model.EventViewModel
-import co.edu.udea.compumovil.gr06_20252.localist.ui.model.MapViewModel
 import co.edu.udea.compumovil.gr06_20252.localist.ui.navigation.TopBar
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -43,15 +36,14 @@ import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
-import kotlinx.coroutines.launch
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
     onLogout: () -> Unit,
-    onGoToProfile: (String) -> Unit,
-    viewModel: MapViewModel = viewModel()
+    onGoToEventEditor: (EventSerializable) -> Unit,
+    onGoToEventDetail: (EventSerializable) -> Unit
 ) {
     val context = LocalContext.current
     val firestore = remember { FirebaseFirestore.getInstance() }
@@ -60,7 +52,6 @@ fun MapScreen(
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
     var eventViewModels by remember { mutableStateOf(listOf<EventViewModel>()) }
     var newMarkerPosition by remember { mutableStateOf<LatLng?>(null) }
-    var selectedEvent by remember { mutableStateOf<EventViewModel?>(null) }
 
     var showLogoutDialog by remember { mutableStateOf(false) }
 
@@ -95,7 +86,6 @@ fun MapScreen(
     }
 
     val cameraPositionState = rememberCameraPositionState()
-    // Cuando obtenga la ubicación, mover la cámara automáticamente
     LaunchedEffect(userLocation) {
         userLocation?.let { loc ->
             cameraPositionState.animate(
@@ -115,35 +105,13 @@ fun MapScreen(
         return
     }
 
-    val uid = firebaseUser.uid
-    var userName by remember { mutableStateOf("") }
-    LaunchedEffect(uid) {
-        if (uid.isNotEmpty()) {
-            firestore.collection("users")
-                .document(uid)
-                .get()
-                .addOnSuccessListener { doc ->
-                    userName = doc.getString("name") ?: doc.getString("email") ?: "Usuario"
-                }
-        }
-    }
-
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
-    fun showSnackbar(message: String) {
-        scope.launch {
-            snackbarHostState.showSnackbar(message)
-        }
-    }
-
     Scaffold(
         topBar = {
             TopBar(
                 title = "Mapa",
                 onLogout = { showLogoutDialog = true }
             )
-        },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        }
     ) {
         Box(
             modifier = Modifier
@@ -158,6 +126,12 @@ fun MapScreen(
                 properties = MapProperties(isMyLocationEnabled = hasLocationPermission),
                 onMapLongClick = { latLng ->
                     newMarkerPosition = latLng
+                    val newEvent = EventSerializable(
+                        id = "",
+                        latitude = newMarkerPosition!!.latitude,
+                        longitude = newMarkerPosition!!.longitude,
+                    )
+                    onGoToEventEditor(newEvent)
                 }
             ) {
                 eventViewModels.filter { !it.isExpired() }.forEach { event ->
@@ -166,93 +140,13 @@ fun MapScreen(
                         title = event.title,
                         snippet = event.description,
                         onClick = {
-                            selectedEvent = event
-                            true
-                        }
-                    )
-                }
-            }
-
-            if (newMarkerPosition != null) {
-                ModalBottomSheet(
-                    onDismissRequest = {
-                        newMarkerPosition = null
-                    }
-                ) {
-                    SnackbarHost(hostState = snackbarHostState)
-
-                    AddEventBottomSheet(
-                        onSave = { title, description, isPublic, duration ->
-                            val newEvent = EventViewModel(
-                                title = title,
-                                latitude = newMarkerPosition!!.latitude,
-                                longitude = newMarkerPosition!!.longitude,
-                                description = description,
-                                isPublic = isPublic,
-                                durationHours = duration,
-                                createdAt = com.google.firebase.Timestamp.now(),
-                                userId = uid,
-                                userName = userName
+                            val eventSerializable = EventSerializable(
+                                id = event.id,
+                                latitude = event.latitude,
+                                longitude = event.longitude
                             )
-
-                            val errorMessage = newEvent.validateEvent(newEvent)
-
-                            if (errorMessage != null) {
-                                showSnackbar(errorMessage)
-                            } else {
-                                addEventToFirestore(
-                                    firestore,
-                                    newEvent,
-                                    onSuccess = {
-                                        showSnackbar("Evento creado exitosamente")
-                                        newMarkerPosition = null
-                                    },
-                                    onError = { showSnackbar("Error al crear el evento") }
-                                )
-                            }
-                        }
-                    )
-                }
-            }
-
-            selectedEvent?.let { event ->
-                ModalBottomSheet(
-                    onDismissRequest = {
-                        selectedEvent = null
-                    }
-                ) {
-                    EventDetailBottomSheet(
-                        eventId = event.id,
-                        firestore,
-                        onClose = {
-                            selectedEvent = null
-                        },
-                        onReact = { emoji ->
-                            selectedEvent?.id?.let { eventId ->
-                                updateReaction(firestore, eventId, emoji)
-                            }
-                        },
-                        onAddComment = { comment ->
-                            selectedEvent?.id?.let { eventId ->
-                                addCommentToEvent(firestore, eventId, comment, uid, userName)
-                            }
-                        },
-                        onDeleteEvent = {
-                            selectedEvent?.id?.let { eventId ->
-                                deleteEventToFirestore(
-                                    firestore,
-                                    eventId = eventId,
-                                    onSuccess = {
-                                        showSnackbar("Evento eliminado exitosamente")
-                                        selectedEvent = null
-                                    },
-                                    onError = { showSnackbar("Error al eliminar el evento") }
-                                )
-                            }
-                        },
-                        onViewProfile = { userId ->
-                            selectedEvent = null
-                            onGoToProfile(userId)
+                            onGoToEventDetail(eventSerializable)
+                            true
                         }
                     )
                 }
@@ -281,72 +175,4 @@ fun MapScreen(
             )
         }
     }
-}
-
-private fun addEventToFirestore(
-    firestore: FirebaseFirestore,
-    newEvent: EventViewModel,
-    onSuccess: () -> Unit,
-    onError: () -> Unit
-) {
-    firestore.collection("events")
-        .add(newEvent)
-        .addOnSuccessListener { onSuccess() }
-        .addOnFailureListener { onError() }
-}
-
-private fun deleteEventToFirestore(
-    firestore: FirebaseFirestore,
-    eventId: String,
-    onSuccess: () -> Unit,
-    onError: () -> Unit
-) {
-    firestore.collection("events")
-        .document(eventId)
-        .delete()
-        .addOnSuccessListener { onSuccess() }
-        .addOnFailureListener { onError() }
-}
-
-private fun updateReaction(
-    firestore: FirebaseFirestore,
-    eventId: String,
-    emoji: String
-) {
-    firestore.collection("events")
-        .document(eventId)
-        .update("reactions.$emoji", com.google.firebase.firestore.FieldValue.increment(1))
-        .addOnSuccessListener {
-            Log.d("Firestore", "Reacción '$emoji' agregada al evento $eventId")
-        }
-        .addOnFailureListener { e ->
-            Log.e("Firestore", "Error actualizando reacción", e)
-        }
-}
-
-fun addCommentToEvent(
-    firestore: FirebaseFirestore,
-    eventId: String,
-    text: String,
-    userId: String,
-    userName: String
-) {
-    val comment = CommentViewModel(
-        eventId = eventId,
-        text = text,
-        createdAt = com.google.firebase.Timestamp.now(),
-        userId = userId,
-        userName = userName
-    )
-
-    firestore.collection("events")
-        .document(eventId)
-        .collection("comments")
-        .add(comment)
-        .addOnSuccessListener {
-            Log.d("Firestore", "Comentario '$comment' agregado al evento $eventId")
-        }
-        .addOnFailureListener { e ->
-            Log.e("Firestore", "Error actualizando el comentario", e)
-        }
 }

@@ -7,6 +7,5 @@ data class CommentViewModel(
     var eventId: String = "",
     var text: String = "",
     var createdAt: Timestamp = Timestamp.now(),
-    var userId: String = "",
-    var userName: String = ""
+    var userId: String = ""
 )

@@ -2,7 +2,15 @@ package co.edu.udea.compumovil.gr06_20252.localist.ui.model
 
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.Exclude
+import kotlinx.serialization.Serializable
 import java.util.concurrent.TimeUnit
+
+@Serializable
+data class EventSerializable(
+    val id: String = "",
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+)
 
 data class EventViewModel(
     var id: String = "",
@@ -14,7 +22,6 @@ data class EventViewModel(
     var durationHours: Int = 1,
     var createdAt: Timestamp = Timestamp.now(),
     val userId: String = "",
-    val userName: String = "",
     var reactions: MutableMap<String, Int> = mutableMapOf(
         "👍" to 0,
         "❤️" to 0,
@@ -29,7 +36,7 @@ data class EventViewModel(
         val creationMillis = createdAt.toDate().time
         val expirationMillis = creationMillis + TimeUnit.HOURS.toMillis(durationHours.toLong())
 
-        val nowMillis = com.google.firebase.Timestamp.now().toDate().time
+        val nowMillis = Timestamp.now().toDate().time
 
         return nowMillis > expirationMillis
     }

@@ -38,7 +38,6 @@ fun BottomBar(navController: NavController) {
             label = { Text("Amigos") }
         )
 
-        // ✅ PERFIL CORRECTO CON userId
         NavigationBarItem(
             selected = false,
             onClick = {
