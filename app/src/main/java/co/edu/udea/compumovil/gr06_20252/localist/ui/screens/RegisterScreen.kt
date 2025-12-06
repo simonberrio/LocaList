@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun RegisterScreen(
-    navController: NavController,
+    onGoToLogin: () -> Unit,
     authViewModel: AuthViewModel = viewModel()
 ) {
     val scope = rememberCoroutineScope()
@@ -42,24 +42,41 @@ fun RegisterScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Nombre") },
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Correo") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Correo") },
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Contraseña (≥6)") }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Contraseña (≥6)") },
+                modifier = Modifier.fillMaxWidth(),
+                visualTransformation = PasswordVisualTransformation()
+            )
 
             Spacer(Modifier.height(16.dp))
 
             Button(onClick = {
-                authViewModel.signUp(email.trim(), password, name.trim(),
-                    onSuccess = { navController.navigate("login") })
+                authViewModel.signUp(
+                    email.trim(), password, name.trim(),
+                    onSuccess = { onGoToLogin() })
             }, modifier = Modifier.fillMaxWidth()) {
                 Text("Registrar")
             }
 
             Spacer(Modifier.height(8.dp))
 
-            TextButton(onClick = { navController.navigate("login") }) {
+            TextButton(onClick = { onGoToLogin() }) {
                 Text("¿Ya tienes cuenta? Inicia sesión")
             }
         }

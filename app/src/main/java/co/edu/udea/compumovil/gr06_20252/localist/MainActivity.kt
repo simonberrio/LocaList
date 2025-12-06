@@ -23,7 +23,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             LocaListTheme {
-
                 val navController = rememberNavController()
 
                 NavHost(
@@ -32,15 +31,31 @@ class MainActivity : ComponentActivity() {
                 ) {
 
                     composable("login") {
-                        LoginScreen(navController)
+                        LoginScreen(onLoginSuccess = {
+                            navController.navigate("main") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        }, onGoToRegister = {
+                            navController.navigate("register") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        })
                     }
 
                     composable("register") {
-                        RegisterScreen(navController)
+                        RegisterScreen(onGoToLogin = {
+                            navController.navigate("login") {
+                                popUpTo("register") { inclusive = true }
+                            }
+                        })
                     }
 
                     composable("main") {
-                        MainScaffold()
+                        MainScaffold(onLogout = {
+                            navController.navigate("login") {
+                                popUpTo("main") { inclusive = true }
+                            }
+                        })
                     }
                 }
             }

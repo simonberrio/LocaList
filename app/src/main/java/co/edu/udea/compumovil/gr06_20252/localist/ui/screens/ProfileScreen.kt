@@ -8,15 +8,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,14 +26,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import co.edu.udea.compumovil.gr06_20252.localist.ui.model.UserViewModel
+import co.edu.udea.compumovil.gr06_20252.localist.ui.navigation.TopBar
+import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import coil.compose.AsyncImage
 
 @Composable
 fun ProfileScreen(
     userId: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onLogout: () -> Unit
 ) {
     val firestore = FirebaseFirestore.getInstance()
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
@@ -70,109 +70,181 @@ fun ProfileScreen(
     }
 
     val isCurrentUser = userId == currentUserId
+    val isFriend = user!!.friends.contains(currentUserId)
+    val hasSentRequest = user!!.friendRequests.contains(currentUserId)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp)
-    ) {
-        if (!isCurrentUser) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = null)
-            }
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    Scaffold(
+        topBar = {
+            TopBar(
+                title = "Perfil",
+                showBack = !isCurrentUser,
+                onBack = onBack,
+                onLogout = { showLogoutDialog = true }
+            )
         }
-
-        AsyncImage(
-            model = user!!.photoUrl.ifBlank {
-                "https://ui-avatars.com/api/?name=${user!!.name}"
-            },
-            contentDescription = null,
+    ) { padding ->
+        Column(
             modifier = Modifier
-                .size(110.dp)
-                .align(Alignment.CenterHorizontally)
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        // 👤 Nombre
-        if (isEditing) {
-            OutlinedTextField(
-                value = editedName,
-                onValueChange = { editedName = it },
-                label = { Text("Nombre") },
-                modifier = Modifier.fillMaxWidth()
+                .fillMaxSize()
+                .padding(padding)
+                .padding(20.dp)
+        ) {
+            AsyncImage(
+                model = user!!.photoUrl.ifBlank {
+                    "https://ui-avatars.com/api/?name=${user!!.name}"
+                },
+                contentDescription = null,
+                modifier = Modifier
+                    .size(110.dp)
+                    .align(Alignment.CenterHorizontally)
             )
-        } else {
-            Text(user!!.name, style = MaterialTheme.typography.headlineSmall)
-        }
 
-        Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
 
-        // 📧 Email
-        Text(user!!.email, style = MaterialTheme.typography.labelMedium)
-
-        Spacer(Modifier.height(12.dp))
-
-        // 📝 Bio
-        if (isEditing) {
-            OutlinedTextField(
-                value = editedBio,
-                onValueChange = { editedBio = it },
-                label = { Text("Bio") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        } else {
-            Text(
-                if (user!!.bio.isBlank()) "Sin biografía"
-                else user!!.bio,
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-
-        Spacer(Modifier.height(20.dp))
-
-        if (isCurrentUser) {
+            // 👤 Nombre
             if (isEditing) {
-                Button(
-                    onClick = {
-                        firestore.collection("users")
-                            .document(userId)
-                            .update(
-                                mapOf(
-                                    "name" to editedName,
-                                    "bio" to editedBio
+                OutlinedTextField(
+                    value = editedName,
+                    onValueChange = { editedName = it },
+                    label = { Text("Nombre") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                Text(user!!.name, style = MaterialTheme.typography.headlineSmall)
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // 📧 Email
+            Text(user!!.email, style = MaterialTheme.typography.labelMedium)
+
+            Spacer(Modifier.height(12.dp))
+
+            // 📝 Bio
+            if (isEditing) {
+                OutlinedTextField(
+                    value = editedBio,
+                    onValueChange = { editedBio = it },
+                    label = { Text("Bio") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                Text(
+                    if (user!!.bio.isBlank()) "Sin biografía"
+                    else user!!.bio,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            if (isCurrentUser) {
+                if (isEditing) {
+                    Button(
+                        onClick = {
+                            firestore.collection("users")
+                                .document(userId)
+                                .update(
+                                    mapOf(
+                                        "name" to editedName,
+                                        "bio" to editedBio
+                                    )
                                 )
-                            )
-                        isEditing = false
+                            isEditing = false
+                        }
+                    ) {
+                        Text("Guardar cambios")
                     }
-                ) {
-                    Text("Guardar cambios")
+                } else {
+                    OutlinedButton(
+                        onClick = { isEditing = true }
+                    ) {
+                        Text("Editar perfil")
+                    }
                 }
             } else {
-                OutlinedButton(
-                    onClick = { isEditing = true }
-                ) {
-                    Text("Editar perfil")
-                }
-            }
-        } else {
+                when {
+                    isFriend -> {
+                        OutlinedButton(onClick = {
+                            removeFriend(firestore, currentUserId!!, userId)
+                        }) {
+                            Text("Eliminar amigo")
+                        }
+                    }
 
-            Button(
-                onClick = {
-                    addFriend(
-                        firestore = firestore,
-                        myId = currentUserId!!,
-                        friendId = userId
-                    )
+                    hasSentRequest -> {
+                        OutlinedButton(onClick = {}) {
+                            Text("Solicitud enviada")
+                        }
+                    }
+
+                    user!!.friendRequests.contains(userId) -> {
+                        Button(onClick = {
+                            acceptFriendRequest(firestore, currentUserId!!, userId)
+                        }) {
+                            Text("Aceptar solicitud")
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        OutlinedButton(onClick = {
+                            rejectFriendRequest(firestore, currentUserId!!, userId)
+                        }) {
+                            Text("Rechazar")
+                        }
+                    }
+
+                    else -> {
+                        Button(onClick = {
+                            sendFriendRequest(firestore, currentUserId!!, userId)
+                        }) {
+                            Text("Agregar amigo")
+                        }
+                    }
                 }
-            ) {
-                Text("Agregar amigo")
             }
+        }
+
+
+        if (showLogoutDialog) {
+            AlertDialog(
+                onDismissRequest = { showLogoutDialog = false },
+                title = { Text("Cerrar sesión") },
+                text = { Text("¿Realmente deseas cerrar sesión?") },
+                confirmButton = {
+                    Button(onClick = {
+                        showLogoutDialog = false
+                        FirebaseAuth.getInstance().signOut()
+                        onLogout()
+                    }) {
+                        Text("Sí, cerrar sesión")
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { showLogoutDialog = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
         }
     }
 }
 
-fun addFriend(
+fun sendFriendRequest(
+    firestore: FirebaseFirestore,
+    myId: String,
+    friendId: String
+) {
+    val friendRef = firestore.collection("users").document(friendId)
+
+    friendRef.update(
+        "friendRequests",
+        com.google.firebase.firestore.FieldValue.arrayUnion(myId)
+    )
+}
+
+fun acceptFriendRequest(
     firestore: FirebaseFirestore,
     myId: String,
     friendId: String
@@ -180,6 +252,40 @@ fun addFriend(
     val myRef = firestore.collection("users").document(myId)
     val friendRef = firestore.collection("users").document(friendId)
 
-    myRef.update("friends", com.google.firebase.firestore.FieldValue.arrayUnion(friendId))
-    friendRef.update("friends", com.google.firebase.firestore.FieldValue.arrayUnion(myId))
+    myRef.update(
+        mapOf(
+            "friendRequests" to com.google.firebase.firestore.FieldValue.arrayRemove(friendId),
+            "friends" to com.google.firebase.firestore.FieldValue.arrayUnion(friendId)
+        )
+    )
+
+    friendRef.update(
+        "friends",
+        com.google.firebase.firestore.FieldValue.arrayUnion(myId)
+    )
+}
+
+fun rejectFriendRequest(
+    firestore: FirebaseFirestore,
+    myId: String,
+    friendId: String
+) {
+    firestore.collection("users")
+        .document(myId)
+        .update(
+            "friendRequests",
+            com.google.firebase.firestore.FieldValue.arrayRemove(friendId)
+        )
+}
+
+fun removeFriend(
+    firestore: FirebaseFirestore,
+    myId: String,
+    friendId: String
+) {
+    val myRef = firestore.collection("users").document(myId)
+    val friendRef = firestore.collection("users").document(friendId)
+
+    myRef.update("friends", com.google.firebase.firestore.FieldValue.arrayRemove(friendId))
+    friendRef.update("friends", com.google.firebase.firestore.FieldValue.arrayRemove(myId))
 }

@@ -196,15 +196,13 @@ fun EventDetailBottomSheet(
             if (comments.isEmpty()) {
                 Text("Aún no hay comentarios")
             } else {
-                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                LazyColumn(modifier = Modifier.weight(1f)) {
                     items(comments) { comment ->
-
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 6.dp)
                         ) {
-
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -212,77 +210,69 @@ fun EventDetailBottomSheet(
                                 Text(
                                     text = comment.userName,
                                     style = MaterialTheme.typography.labelMedium,
-                                    modifier = Modifier.clickable {
-                                        onViewProfile(comment.userId)
-                                    },
-                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable { onViewProfile(comment.userId) },
+                                    color = MaterialTheme.colorScheme.primary
                                 )
-
                                 Text(
                                     text = formatDate(comment.createdAt),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.outline
                                 )
                             }
-
-                            Text(
-                                text = comment.text,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-
+                            Text(text = comment.text, style = MaterialTheme.typography.bodyMedium)
                             Divider(modifier = Modifier.padding(top = 6.dp))
                         }
                     }
                 }
             }
         }
+    }
 
-        Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(12.dp))
 
-        OutlinedTextField(
-            value = newComment,
-            onValueChange = { newComment = it },
-            label = { Text("Agregar comentario") },
-            modifier = Modifier.fillMaxWidth()
-        )
+    OutlinedTextField(
+        value = newComment,
+        onValueChange = { newComment = it },
+        label = { Text("Agregar comentario") },
+        modifier = Modifier.fillMaxWidth()
+    )
 
-        Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(8.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = {
-                if (newComment.isNotBlank()) {
-                    onAddComment(newComment.trim())
-                    newComment = ""
-                }
-            }) {
-                Text("Enviar")
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = {
+            if (newComment.isNotBlank()) {
+                onAddComment(newComment.trim())
+                newComment = ""
             }
+        }) {
+            Text("Enviar")
         }
+    }
 
-        if (showDeleteDialog) {
-            AlertDialog(
-                onDismissRequest = { showDeleteDialog = false },
-                title = { Text("Eliminar evento") },
-                text = { Text("¿Realmente deseas eliminar este evento? Esta acción no se puede deshacer.") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showDeleteDialog = false
-                            onDeleteEvent()
-                            onClose()
-                        }
-                    ) {
-                        Text("Eliminar", color = Color.Red)
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Eliminar evento") },
+            text = { Text("¿Realmente deseas eliminar este evento? Esta acción no se puede deshacer.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDeleteEvent()
+                        onClose()
                     }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = { showDeleteDialog = false }
-                    ) {
-                        Text("Cancelar")
-                    }
+                ) {
+                    Text("Eliminar", color = Color.Red)
                 }
-            )
-        }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteDialog = false }
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }

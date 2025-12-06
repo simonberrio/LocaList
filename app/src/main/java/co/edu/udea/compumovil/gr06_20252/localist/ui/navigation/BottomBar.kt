@@ -1,42 +1,53 @@
 package co.edu.udea.compumovil.gr06_20252.localist.ui.navigation
 
-import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import androidx.navigation.compose.currentBackStackEntryAsState
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun BottomBar(navController: NavController) {
 
-    val items = listOf(
-        BottomNavItem.Map,
-        BottomNavItem.Friends,
-        BottomNavItem.Profile
-    )
+    NavigationBar(
+        tonalElevation = 8.dp,
+        containerColor = MaterialTheme.colorScheme.primary
+    ) {
 
-    NavigationBar(tonalElevation = 8.dp) {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
 
-        val navBackStackEntry = navController.currentBackStackEntryAsState()
-        val currentRoute = navBackStackEntry.value?.destination?.route
+        NavigationBarItem(
+            selected = false,
+            onClick = { navController.navigate("map") },
+            icon = { Icon(Icons.Default.Place, null) },
+            label = { Text("Mapa") }
+        )
 
-        items.forEach { item ->
+        NavigationBarItem(
+            selected = false,
+            onClick = { navController.navigate("friends") },
+            icon = { Icon(Icons.Default.Face, null) },
+            label = { Text("Amigos") }
+        )
 
-            NavigationBarItem(
-                selected = currentRoute == item.route,
-                onClick = {
-                    navController.navigate(item.route) {
-                        popUpTo("map")
-                        launchSingleTop = true
-                    }
-                },
-                icon = {
-                    Icon(item.icon, contentDescription = item.label)
-                },
-                label = {
-                    Text(item.label)
+        // ✅ PERFIL CORRECTO CON userId
+        NavigationBarItem(
+            selected = false,
+            onClick = {
+                uid?.let {
+                    navController.navigate("profile/$it")
                 }
-            )
-        }
+            },
+            icon = { Icon(Icons.Default.AccountCircle, null) },
+            label = { Text("Perfil") }
+        )
     }
 }

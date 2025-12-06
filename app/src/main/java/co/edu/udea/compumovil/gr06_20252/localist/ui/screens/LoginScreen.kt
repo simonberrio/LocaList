@@ -15,7 +15,8 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
-    navController: NavController
+    onLoginSuccess: () -> Unit,
+    onGoToRegister: () -> Unit
 ) {
     val authViewModel: AuthViewModel = viewModel()
     var email by remember { mutableStateOf("") }
@@ -29,7 +30,6 @@ fun LoginScreen(
             snackbarHostState.showSnackbar(msg)
         }
     }
-
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
         Column(
@@ -69,10 +69,8 @@ fun LoginScreen(
                         password = password,
                         onSuccess = {
                             scope.launch {
-                                snackbarHostState.showSnackbar("Login correcto. Ingresando...")
-                                navController.navigate("main") {
-                                    popUpTo("login") { inclusive = true }
-                                }
+                                snackbarHostState.showSnackbar("Iniciando sesión...")
+                                onLoginSuccess()
                             }
                         },
                         onError = { error ->
@@ -89,7 +87,7 @@ fun LoginScreen(
 
             Spacer(Modifier.height(8.dp))
 
-            TextButton(onClick = { navController.navigate("register") }) {
+            TextButton(onClick = { onGoToRegister() }) {
                 Text("¿No tienes cuenta? Regístrate")
             }
         }

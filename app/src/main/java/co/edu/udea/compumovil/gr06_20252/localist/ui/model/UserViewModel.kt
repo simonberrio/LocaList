@@ -8,5 +8,7 @@ data class UserViewModel(
     val email: String = "",
     val bio: String = "",
     val photoUrl: String = "",
+    val friends: List<String> = emptyList(),
+    val friendRequests: List<String> = emptyList(),
     val createdAt: Timestamp = Timestamp.now()
 )
